@@ -1,0 +1,227 @@
+<div id="app" style="width: 100%; margin: auto">
+    <div class="text-center">
+        <h1>Contact Manager</h1>    
+        <div>
+            <input id="NameFilter" type="text">
+            <input id="DateOfBirthFilter" type="text">
+            <input id="IsMarriedFilter" type="text">
+            <input id="PhoneFilter" type="text">
+            <input id="SalaryFilter" type="text">
+            <button @click="searchClient()">Search by filters</button>            
+            <button @click="clearFilters()">Clear all filters</button>
+            <button @click="refreshData()">Remove row sorting</button>
+        </div>
+        <hr>
+        <div>
+            <button @click="sortBy('Name')" class="tableHeader">Client Name</button>
+            <button @click="sortBy('DateOfBirth')" class="tableHeader">Client Date Of Birth</button>
+            <button @click="sortBy('IsMarried')" class="tableHeader">Client Is Married</button>
+            <button @click="sortBy('Phone')" class="tableHeader">Client Phone</button>
+            <button @click="sortBy('Salary')" class="tableHeader">Client Salary</button>
+            <div :id=client.id v-for="client in clientData">
+                <input id="Name" type="text" disabled v-model="client.name">
+                <input id="DateOfBirth" type="text" disabled v-model="client.dateOfBirth">
+                <input id="IsMarried" type="text" disabled v-model="client.isMarried">
+                <input id="Phone" type="text" disabled v-model="client.phone">
+                <input id="Salary" type="text" disabled v-model="client.salary">
+                <button @click="changeContact(client.id)">Change Contact</button>
+                <button @click="saveContact(client.id)">Save Contact</button>
+                <button @click="deleteContact(client.id)">Remove Contact</button>
+            </div>
+        </div>
+        <hr>
+        <div>
+            <input id="File" type="file" @change="handleFileUpload" />
+            <button @click="submitFile">Upload File</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tableHeader
+    {
+        width: 177px;
+    }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://unpkg.com/vue@2"></script>
+
+<script type="module">
+    import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+    const API_URL = "https://localhost:7026/"
+    const app = createApp({
+        data() {
+            return {
+                title: "Contact Manager",
+                clientData: [],
+                isEdit: false,
+                editingId: '',
+                selectedFile: null
+            }
+        },methods: {
+            async refreshData(){
+                axios.get(API_URL+"ClientData").then(
+                    (response)=>{
+                        this.clientData=response.data;
+                    }
+                )
+            },
+            async changeContact(ClientId){
+                var inputs=document.getElementById(ClientId).getElementsByTagName('input');
+
+                Array.from(inputs).forEach(el =>
+                    el.disabled = false
+                );
+
+                this.isEdit = true;
+                this.editingId = ClientId;
+            },
+            async saveContact(ClientId){
+                var inputs=document.getElementById(ClientId).getElementsByTagName('input');
+                
+                var newName = inputs[0].value;
+                var newDateOfBirth = inputs[1].value;
+                var newIsMarried = inputs[2].value;
+                var newPhone = inputs[3].value;
+                var newSalary = inputs[4].value;
+
+                let valid = true;
+
+                if (newName === '' && (newName.length>20 || /\d/.test(newName))) {
+                    alert("Name must be 1-20 letters only");
+                    valid = false;
+                }
+                if (newDateOfBirth === '' && !/^\d{4}-\d{2}-\d{2}$/.test(newDateOfBirth)) {
+                    alert("Date of Birth must be in the format YYYY-MM-DD.");
+                    valid = false;
+                }
+                if (newIsMarried === '' && (newIsMarried !== 'true' && newIsMarried !== 'false')) {
+                    alert("Is Married must be 'true' or 'false'.");
+                    valid = false;
+                }
+                if (newPhone === '' && !/^\d{10,}$/.test(newPhone)) {
+                    alert("Phone number must contain at least 10 digits.");
+                    valid = false;
+                }
+                if (newSalary === '' && /[a-zA-Z]/g.test(newSalary)) {
+                    alert("Salary must be a valid number.");
+                    valid = false;
+                }
+
+                if (valid)
+                {
+                    const formData=new FormData();
+                    formData.append("changedClientName", newName)
+                    formData.append("changedClientDateOfBirth", newDateOfBirth)
+                    formData.append("changedClientIsMarried", newIsMarried)
+                    formData.append("changedClientPhone", newPhone)
+                    formData.append("changedClientSalary", newSalary)
+
+                    axios.put(API_URL+"ClientData/"+ClientId, formData).then(
+                        (response)=>{
+                            this.refreshData();
+                            alert(response.data);
+                        }
+                    )
+
+                    Array.from(inputs).forEach(el =>
+                        el.disabled = true
+                    );
+
+                    this.isEdit = false;
+                    this.editingId = ClientId;
+                }
+            },
+            async deleteContact(ClientId){
+                axios.delete(API_URL+"ClientData/"+ClientId).then(
+                    (response)=>{
+                        this.refreshData();
+                        alert(response.data);
+                    }
+                )
+            },
+            async handleFileUpload(event){
+                this.selectedFile = event.target.files[0];
+            },
+            async submitFile(){
+                if (!this.selectedFile) {
+                alert('Please select a file first!');
+                return;
+                }
+
+                const formData = new FormData();
+                formData.append('CSVData', (this.selectedFile));
+
+                axios.post(API_URL+"ClientData/CSV", formData).then(
+                    (response)=>{
+                        this.refreshData();
+                        alert(response.data);
+                    }
+                )
+            },
+            async searchClient(){
+                var Name = document.getElementById("NameFilter").value;
+                var DateOfBirth = document.getElementById("DateOfBirthFilter").value;
+                var IsMarried = document.getElementById("IsMarriedFilter").value;
+                var Phone = document.getElementById("PhoneFilter").value;
+                var Salary = document.getElementById("SalaryFilter").value;
+
+                let valid = true;
+
+                if (Name !== '' && (Name.length>20 || /\d/.test(Name))) {
+                    alert("Name must be 1-20 letters only");
+                    valid = false;
+                }
+                if (DateOfBirth !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(DateOfBirth)) {
+                    alert("Date of Birth must be in the format YYYY-MM-DD.");
+                    valid = false;
+                }
+                if (IsMarried !== '' && (IsMarried !== 'true' && IsMarried !== 'false')) {
+                    alert("Is Married must be 'true' or 'false'.");
+                    valid = false;
+                }
+                if (Phone !== '' && !/^\d{10,}$/.test(Phone)) {
+                    alert("Phone number must contain at least 10 digits.");
+                    valid = false;
+                }
+                if (Salary !== '' && /[a-zA-Z]/g.test(Salary)) {
+                    alert("Salary must be a valid number.");
+                    valid = false;
+                }
+
+                if (valid){                    
+                    axios.get(API_URL   +"ClientData/filters?ClientName="+Name
+                                        +"&ClientDateOfBirth="+DateOfBirth
+                                        +"&ClientIsMarried="+IsMarried
+                                        +"&ClientPhone="+Phone
+                                        +"&ClientSalary="+Salary)
+                    .then(
+                        (response)=>{
+                            this.clientData=response.data;
+                        }
+                    )
+                }
+            },
+            async clearFilters(){
+                document.getElementById("NameFilter").value = null;
+                document.getElementById("DateOfBirthFilter").value = null;
+                document.getElementById("IsMarriedFilter").value = null;
+                document.getElementById("PhoneFilter").value = null;
+                document.getElementById("SalaryFilter").value = null;
+
+                this.refreshData();
+            },
+            async sortBy(field){
+                axios.get(API_URL+"ClientData/sort?field="+field).then(
+                    (response)=>{
+                        this.clientData=response.data;
+                    }
+                )
+            }
+        },mounted:function() {
+            this.refreshData();
+        }
+    });
+    app.mount('#app')
+</script>
